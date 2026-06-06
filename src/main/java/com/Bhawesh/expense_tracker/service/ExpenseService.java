@@ -1,20 +1,16 @@
 package com.Bhawesh.expense_tracker.service;
 
-import ch.qos.logback.core.util.DefaultInvocationGate;
 import com.Bhawesh.expense_tracker.dto.ExpenserequestDTO;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.Category;
 import com.Bhawesh.expense_tracker.entity.Expense;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
-import com.Bhawesh.expense_tracker.repository.CategoryRepsoitory;
+import com.Bhawesh.expense_tracker.repository.CategoryRepository;
 import com.Bhawesh.expense_tracker.repository.ExpenseRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 
@@ -23,7 +19,7 @@ import java.util.List;
 public class ExpenseService {
    private final ExpenseRepository expenseRepository;
    private final AccountRepository accountRepository;
-   private final CategoryRepsoitory categoryRepository;
+   private final CategoryRepository categoryRepository;
 
    @Transactional
     public Expense createExpense(ExpenserequestDTO request){
