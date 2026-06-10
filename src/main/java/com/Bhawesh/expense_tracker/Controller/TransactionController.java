@@ -25,6 +25,6 @@ public class TransactionController {
     public ResponseEntity<Transaction> transferMoney(@RequestBody TransactionRequestDto request
      , @AuthenticationPrincipal User currentUser){
         Transaction savedTransaction = transactionService.transferMoney(request,currentUser);
-        return ResponseEntity.ok("Transfer successful. Transaction ID: " + completedTransaction.getId());
+        return ResponseEntity.ok(savedTransaction);
     }
 }

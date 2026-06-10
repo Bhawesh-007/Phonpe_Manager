@@ -1,5 +1,6 @@
 package com.Bhawesh.expense_tracker.entity;
 
+import com.Bhawesh.expense_tracker.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,7 +28,7 @@ public class User implements UserDetails {
     private Long id;
     @Column(nullable = false)
     private String name;
-    @Column(nullable = false)
+    @Column(nullable = false , unique = true)
     private String email;
     @Column(nullable = false)
     private String passwordHash;
@@ -39,6 +40,8 @@ public class User implements UserDetails {
     private List<UploadedStatement> uploadedStatements;
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DebtRecord> debtRecords;
+    @Enumerated(EnumType.STRING)
+    private Role role;
    //Spring user details methods
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
