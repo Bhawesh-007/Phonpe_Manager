@@ -13,4 +13,6 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction , Long> {
     @Query("SELECT t FROM Transaction t WHERE t.senderAccount.id = :accountId")
     List<Transaction> findAllByAccountId(@Param("accountId") Long accountId);
+
+    boolean existsBySenderAccount_IdOrReceiverAccount_Id(Long senderAccountId, Long receiverAccountId);
 }

@@ -4,11 +4,17 @@ import com.Bhawesh.expense_tracker.dto.ExpenserequestDTO;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.Category;
 import com.Bhawesh.expense_tracker.entity.Expense;
+import com.Bhawesh.expense_tracker.entity.User;
+import com.Bhawesh.expense_tracker.enums.Role;
+import com.Bhawesh.expense_tracker.exception.ResourceNotFoundException;
+import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
 import com.Bhawesh.expense_tracker.repository.CategoryRepository;
 import com.Bhawesh.expense_tracker.repository.ExpenseRepository;
+import com.Bhawesh.expense_tracker.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,8 +29,8 @@ public class ExpenseService {
 
    @Transactional
     public Expense createExpense(ExpenserequestDTO request){
-       Account account = accountRepository.findById(request.getAccountId()).orElseThrow(()-> new RuntimeException("Account not found"));
-       Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(()-> new RuntimeException("Category not found"));
+       Account account = accountRepository.findById(request.getAccountId()).orElseThrow(()-> new ResourceNotFoundException("Account not found"));
+       Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(()-> new ResourceNotFoundException("Category not found"));
        if(account.getBalance().compareTo(request.getAmount()) < 0){
            throw new RuntimeException("Insufficient balance");
        }
@@ -40,27 +46,51 @@ public class ExpenseService {
 
       return expenseRepository.save(expense);
    }
+
+   // Own expenses only — any authenticated user can call this.
+   public List<Expense> getMyExpenses(User currentUser){
+       return expenseRepository.findByAccount_User_Id(currentUser.getId());
+   }
+
+   // Every expense in the system, regardless of owner — admin only.
+   @PreAuthorize("hasAuthority('ADMIN')") //this is authorizing only admins to invoke a method
    public List<Expense> getAllExpense(){
        return expenseRepository.findAll();
    }
-   public Expense getExpenseById(Long id){
-       return expenseRepository.findById(id).orElseThrow(()-> new RuntimeException("Expense not found"));
+
+   public Expense getExpenseById(Long id, User currentUser){
+       Expense expense = expenseRepository.findById(id)
+               .orElseThrow(()-> new ResourceNotFoundException("Expense not found with id: " + id));
+       assertOwnerOrAdmin(expense.getAccount(), currentUser);
+       return expense;
    }
-   public java.util.List<Expense> getExpensesByAccount(Long accountId) {
-        // First verify the account actually exists
-        if (!accountRepository.existsById(accountId)) {
-            throw new RuntimeException("Account not found with id: " + accountId);
-        }
+
+   public List<Expense> getExpensesByAccount(Long accountId, User currentUser) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + accountId));
+        assertOwnerOrAdmin(account, currentUser);
         return expenseRepository.findByAccountId(accountId);
    }
+
+   public void assertOwnerOrAdmin(Account account, User currentUser){
+       boolean isOwner = account.getUser().getId().equals(currentUser.getId());
+       boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+       if(!isOwner && !isAdmin){
+           throw new UnauthorizedAccessException("You do not have access to this resource");
+       }
+   }
+
    @Transactional
-   public Expense updateExpense( Long id , ExpenserequestDTO request){
+   public Expense updateExpense( Long id , ExpenserequestDTO request ,  User currentUser){
         //see what i want is to first find the record of expense id which i am getting
        //then i have  to fetch the account from which this payment was made
        //then i will add that amount of that transaction into the account balance
        //then i will cross-verify wheter updated payment is valid or not
+
+
        Expense existingExpense = expenseRepository.findById(id)
                .orElseThrow(() -> new RuntimeException("Expense not found with id: " + id));
+       assertOwnerOrAdmin(existingExpense.getAccount(),currentUser );
        //fetch the target account and category
        Account newAccount = accountRepository.findById(request.getAccountId())
                .orElseThrow(() -> new RuntimeException("Account not found with id: " + request.getAccountId()));
@@ -87,11 +117,12 @@ public class ExpenseService {
 
    }
     @Transactional
-    public void deleteExpense(Long id) {
+    public void deleteExpense(Long id, User currentUser) {
         // 1. Fetch the existing expense
+
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found with id: " + id));
-
+        assertOwnerOrAdmin(expense.getAccount(), currentUser);
         // 2. Refund the money back to the linked account
         Account account = expense.getAccount();
         account.setBalance(account.getBalance().add(expense.getAmount()));

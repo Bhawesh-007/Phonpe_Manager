@@ -1,0 +1,71 @@
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant F as JwtAuthFilter
+    participant Auth as AuthController/Service
+    participant Acc as AccountController/Service
+    participant Exp as ExpenseController/Service
+    participant Txn as TransactionController/Service
+    participant Repo as JPA Repositories
+    participant DB as MySQL
+
+    Note over C,DB: 1. Register
+    C->>Auth: POST /api/auth/register {name,email,password,role}
+    Auth->>Repo: findByEmail(email)
+    Repo->>DB: SELECT * FROM app_users WHERE email=?
+    DB-->>Repo: none found
+    Auth->>Auth: BCrypt.encode(password)
+    Auth->>Repo: save(User)
+    Repo->>DB: INSERT INTO app_users
+    Auth->>Auth: jwtService.generateToken(user)
+    Auth-->>C: 200 { token }
+
+    Note over C,DB: 2. Login
+    C->>Auth: POST /api/auth/login {email,password}
+    Auth->>Auth: authenticationManager.authenticate(...)
+    Auth->>Repo: findByEmail(email)
+    Repo->>DB: SELECT * FROM app_users WHERE email=?
+    Auth->>Auth: jwtService.generateToken(user)
+    Auth-->>C: 200 { token }
+
+    Note over C,DB: 3. Authenticated request (applies to every call below)
+    C->>F: Authorization: Bearer <JWT>
+    F->>F: extractUsername(jwt)
+    F->>Repo: loadUserByUsername(email)
+    Repo->>DB: SELECT * FROM app_users WHERE email=?
+    F->>F: isTokenValid? -> SecurityContextHolder.setAuthentication
+    F-->>C: request proceeds to controller
+
+    Note over C,DB: 4. Create account
+    C->>Acc: POST /accounts/create {accountType, initialBalance}
+    Acc->>Repo: save(Account{user=currentUser})
+    Repo->>DB: INSERT INTO accounts
+    Acc-->>C: 200 "<type> account created with ID: <id>"
+
+    Note over C,DB: 5. Create expense (spends from an account)
+    C->>Exp: POST /api/expenses {accountId, categoryId, amount, note, timestamp}
+    Exp->>Repo: findById(accountId)
+    Repo->>DB: SELECT * FROM accounts WHERE id=?
+    Exp->>Repo: findById(categoryId)
+    Repo->>DB: SELECT * FROM categories WHERE id=?
+    Exp->>Exp: check balance >= amount
+    Exp->>Repo: save(account) with balance - amount
+    Repo->>DB: UPDATE accounts SET balance=?
+    Exp->>Repo: save(Expense)
+    Repo->>DB: INSERT INTO expense
+    Exp-->>C: 201 Expense
+
+    Note over C,DB: 6. Transfer money between accounts
+    C->>Txn: POST /api/transactions/transfer {senderAccountId, receiverAccountId, amount, note}
+    Txn->>Repo: findById(senderAccountId)
+    Repo->>DB: SELECT * FROM accounts WHERE id=?
+    Txn->>Txn: verify sender.user.id == currentUser.id
+    Txn->>Repo: findById(receiverAccountId)
+    Repo->>DB: SELECT * FROM accounts WHERE id=?
+    Txn->>Txn: check sender.balance >= amount
+    Txn->>Repo: save(sender) balance - amount
+    Txn->>Repo: save(receiver) balance + amount
+    Repo->>DB: UPDATE accounts SET balance=? (x2)
+    Txn->>Repo: save(Transaction{status=SUCCESS})
+    Repo->>DB: INSERT INTO transactions
+    Txn-->>C: 200 Transaction
