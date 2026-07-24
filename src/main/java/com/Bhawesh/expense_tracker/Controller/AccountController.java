@@ -4,10 +4,11 @@ import com.Bhawesh.expense_tracker.dto.AccountRequestDto;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.Role;
-import com.Bhawesh.expense_tracker.exception.ResourceNotFoundException;
 import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
+import com.Bhawesh.expense_tracker.repository.UserRepository;
 import com.Bhawesh.expense_tracker.service.AccountService;
+import com.Bhawesh.expense_tracker.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,8 @@ import java.util.List;
 public class AccountController {
     private final AccountService accountService;
     private final AccountRepository accountRepository;
+    private final ExpenseService expenseService;
+    private final UserRepository userRepository;
     @PostMapping("/create")
     public ResponseEntity<?> createAccount(
             @Valid @RequestBody AccountRequestDto request,
@@ -44,24 +47,5 @@ public class AccountController {
         boolean isAdmin = currentUser.getRole().equals(Role.ADMIN);
         if(!isUser && !isAdmin){throw new UnauthorizedAccessException("You do not have access to this resource");}
         return true;
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<Account> getAccountById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
-        Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + id));
-        UserorAdmin(account.getUser().getId(), currentUser);
-        return ResponseEntity.ok(account);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Account> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequestDto request, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(accountService.updateAccount(id, request, currentUser));
-    }
-userRepository.findById(id).map(user -> user.getRole() == Role.ADMIN).orElse(false);
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAccount(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
-        accountService.deleteAccount(id, currentUser);
-        return ResponseEntity.noContent().build();
     }
 }
