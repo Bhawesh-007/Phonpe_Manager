@@ -12,5 +12,6 @@ public interface ExpenseRepository extends JpaRepository<Expense , Long> {
     List<Expense> findByAccountId(Long accountId);
     List<Expense> findByAccountIdAndTimestampBetween(Long accountId , LocalDateTime startdate , LocalDateTime enddate);
     List<Expense> findByAccount_User_Id(Long userId);
+    boolean existsByCategory_Id(Long categoryId);
 
 }

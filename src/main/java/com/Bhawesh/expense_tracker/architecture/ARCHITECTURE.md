@@ -1,8 +1,22 @@
 # SpendWise / PhonePe Manager — Architecture
 
+## 0. Product vision
+
+Personal expense tracker. A user gets to their spend data two ways:
+
+1. **Manual entry** — user logs an expense/transaction directly via the app.
+2. **Bank statement upload** — user uploads a bank statement PDF; the system
+   auto-detects the transactions in it, categorizes them, and reflects them
+   in the app without manual entry.
+
+The categorization for path (2) is done by a separate NLP microservice
+(FastAPI + Hugging Face model), already built and working in its own repo.
+This repo (Spring Boot backend) does not yet call it — that wiring is the
+next integration milestone (Phase 2 below).
+
 This document describes the system as it exists today, plus the parts of the
-target architecture (from the project's stated scope) that are not built yet.
-Status tags on every component: **[DONE]**, **[PARTIAL]**, **[PLANNED]**.
+target architecture that are not built yet. Status tags on every component:
+**[DONE]**, **[PARTIAL]**, **[MISSING]**, **[PLANNED]**.
 
 ---
 
@@ -21,7 +35,7 @@ flowchart LR
         REPO["Spring Data JPA\nRepositories"]
     end
 
-    subgraph ML["FastAPI NLP Microservice  [PLANNED]"]
+    subgraph ML["NLP Microservice  [DONE, external repo]"]
         FASTAPI["FastAPI service"]
         HF["Hugging Face model\n(transaction categorization)"]
     end
@@ -30,14 +44,15 @@ flowchart LR
 
     SPA -- "HTTPS + JWT bearer token" --> API
     API --> SEC --> SVC --> REPO --> DB
-    SVC -. "async categorization call\n(planned)" .-> FASTAPI
+    SVC -. "upload PDF, get back\ncategorized transactions\n[NOT WIRED YET]" .-> FASTAPI
     FASTAPI --> HF
-    FASTAPI -. "category result" .-> SVC
+    FASTAPI -. "categorized transaction list" .-> SVC
 ```
 
-Only the **Spring Boot Backend** and **MySQL** boxes exist in this repo today.
-The React SPA and FastAPI/Hugging Face service are referenced in the project
-scope but have no code yet — see [§6 Roadmap](#6-roadmap--gaps).
+Only the **Spring Boot Backend** and **MySQL** boxes exist in this repo.
+The NLP microservice is real and working, but lives in a separate repo and
+is not yet called from this backend. The React SPA has no code yet.
+See [§6 Roadmap](#6-roadmap--gaps).
 
 ---
 
@@ -67,15 +82,15 @@ of response DTOs — see known issues).
 | Feature       | Entity | Repository | Service | Controller | Notes |
 |---------------|:---:|:---:|:---:|:---:|---|
 | Auth (register/login) | [DONE] `User` | [DONE] | [DONE] `AuthService` | [DONE] `/api/auth/**` | JWT issued on register + login |
-| Account | [DONE] | [DONE] (buggy, see §5) | [DONE] create-only | [DONE] create-only | No list/get/update/delete |
-| Expense | [DONE] | [DONE] | [DONE] incl. update/delete | [PARTIAL] create/read only | update/delete exist in service, not exposed |
-| Transaction (transfer) | [DONE] | [DONE] | [DONE] | [DONE] | Sender-ownership check present |
-| Category | [DONE] | [DONE] | [MISSING] | [MISSING] | No way to create categories via API |
+| Account | [DONE] | [DONE] | [DONE] create + list-by-user | [PARTIAL] `/api/accounts` | No get-by-id/update/delete yet |
+| Expense | [DONE] | [DONE] | [DONE] full CRUD | [DONE] `/api/expenses` | create/get-mine/get-all(admin)/get-by-id/get-by-account/update/delete, ownership-scoped |
+| Transaction (transfer) | [DONE] | [DONE] | [DONE] | [DONE] `/api/transactions` | Sender-ownership check present |
+| Category | [DONE] | [DONE] | [MISSING] | [MISSING] | No way to create categories via API — blocks manual Expense creation, which requires a `categoryId` |
 | DebtRecord | [DONE] | [DONE] | [MISSING] | [MISSING] | Modeled, unbuilt |
-| UploadedStatement | [DONE] | [DONE] | [MISSING] | [MISSING] | Needed for PDF statement upload (Phase 2) |
-| Bulk PDF import | — | — | [DONE] `ExpensePdfService` | [MISSING] | Service exists, nothing calls it |
+| UploadedStatement | [DONE] (mismodeled, see §5) | [DONE] | [MISSING] | [MISSING] | Needed to track PDF-upload status (Phase 2) |
+| Bulk PDF import (backend side) | — | — | [PARTIAL] `ExpensePdfService.SaveBulkExpenses` | [MISSING] | Takes an already-categorized `List<TransactionDTO>` + accountId and persists as `Expense` rows with `source=PDF_IMPORT`. Nothing calls it yet — no controller, no HTTP client to the microservice |
+| NLP categorization | — | — | [DONE], external repo | — | Separate FastAPI + Hugging Face service, accepts PDF upload directly, returns categorized transactions. Working, not yet called from this backend |
 | Analytics/KPI | — | — | [MISSING] | [MISSING] | Needed to feed Recharts dashboard |
-| NLP categorization | — | — | [MISSING] (Python) | [MISSING] | Separate FastAPI service, not started |
 
 ---
 
@@ -156,9 +171,11 @@ erDiagram
 `TransactionStatus{SUCCESS,FAILED,PENDING}` ·
 `DebtType{BORROWED,DEBT}` · `DebtStatus{PENDING,STATUS,OVERDUE}` ⚠️ (`STATUS` looks like a placeholder, not a real status)
 
-`UploadedStatement` currently reuses `DebtType`/`DebtStatus`, which are debt
-vocabularies, not upload-processing vocabularies (`PENDING`/`PROCESSED`/`FAILED`
-would fit its actual purpose better). Flagged for Phase 2.
+`UploadedStatement` currently reuses `DebtType`/`DebtStatus`/`personName`/
+`dueDate` — those are debt-tracking fields, not statement-upload-tracking
+fields. What it actually needs: `fileName`, upload/process timestamps,
+a `PENDING|PROCESSED|FAILED` status, and a count of transactions imported.
+Needs remodeling before Phase 2 lands.
 
 ---
 
@@ -190,55 +207,59 @@ sequenceDiagram
 
 - `SecurityConfig`: stateless session policy, CSRF disabled (appropriate for a
   pure JWT API), `/api/auth/**` and `/error` are the only `permitAll` routes,
-  everything else requires authentication. **No role-based (`hasRole`)
-  restrictions exist yet** — `Role.ADMIN` is modeled but unenforced.
+  everything else requires authentication. `Role.ADMIN` is enforced via
+  `@PreAuthorize` on `ExpenseService.getAllExpense` — the first real use of
+  RBAC in the codebase, though it's not yet applied consistently elsewhere.
 - `JwtService`: signs/verifies HS256 tokens using a secret from
   `security.jwt.secret-key`.
-- `CorsConfig`: allows configured origins on `/api/**` only — note this does
-  **not** cover `/accounts`, which isn't under `/api` (see §5).
+- `CorsConfig`: allows configured origins on `/api/**` only. All controllers
+  now live under `/api/**` (routing inconsistency from earlier is fixed —
+  `AccountController` moved to `/api/accounts`).
 
 ---
 
 ## 5. Known architectural inconsistencies
 
-These aren't Phase 1 line-items already covered — they're structural things
-worth knowing while reading the rest of the codebase:
-
-1. **Routing convention is inconsistent.** `AuthController`, `ExpenseController`,
-   `TransactionController` all live under `/api/...`. `AccountController` lives
-   at `/accounts` (no `/api` prefix). This means `CorsConfig`'s `/api/**`
-   mapping silently doesn't apply to account endpoints from a browser client.
-2. **No ownership scoping on `Expense` reads** (`getAllExpense`,
-   `getExpenseById`, `getExpensesByAccount` return/allow lookup of any user's
-   data) — the same pattern `TransactionService` already gets right for
-   transfers isn't applied to expenses yet.
-3. **Controllers return JPA entities directly** (e.g. `ResponseEntity<Expense>`,
-   `ResponseEntity<Transaction>`) instead of response DTOs. Works today, but
-   couples the wire format to the persistence model and will over-serialize
-   lazy associations (`Account.expenses`, `User.accounts`, etc.) once those
-   relationships are populated.
-4. **Secrets committed in plaintext** in `application.properties` (DB
-   password, JWT signing key) — `spring-dotenv` is a declared dependency but
-   no `.env` is actually used yet.
+1. **Controllers return JPA entities directly** (e.g. `ResponseEntity<Expense>`,
+   `ResponseEntity<Transaction>`, `ResponseEntity<Account>`) instead of response
+   DTOs. Works today, but couples the wire format to the persistence model and
+   will over-serialize lazy associations (`Account.expenses`, `User.accounts`,
+   etc.) once those relationships are populated.
+2. **Secrets fix in progress**: DB password/JWT key were committed in
+   plaintext in `application.properties`; a working-tree change (uncommitted
+   as of this writing) moves them to `.env` via Spring's native
+   `spring.config.import=optional:file:.env[.properties]`, replacing the
+   now-unneeded `spring-dotenv` dependency. Needs to land as a commit.
+3. **`UploadedStatement` entity is mismodeled** — see §3. Reuses debt
+   vocabulary (`DebtType`/`DebtStatus`/`personName`/`dueDate`) instead of
+   upload-tracking fields. Must be fixed before Phase 2 work starts, since
+   Phase 2 is exactly "make PDF upload work end-to-end."
+4. **`DebtStatus.STATUS`** enum value looks like a placeholder left in by
+   mistake, not an intentional status.
 
 ---
 
 ## 6. Roadmap / gaps
 
-Maps to the phased plan already agreed for this project:
-
-- **Phase 1** — close CRUD gaps (Category, Account, DebtRecord), wire orphaned
-  Expense update/delete and bulk-import code, add global exception handling,
-  fix the bugs in §5.
-- **Phase 2** — real PDF statement upload/parsing, `UploadedStatement`
-  service/controller.
+- **Phase 1 (current)** — close CRUD gaps: `Category` service/controller
+  (blocking — Expense creation requires a `categoryId`), `Account`
+  get/update/delete, `DebtRecord` service/controller. Fix §5 items 1–2
+  (DTO responses, land the secrets-to-`.env` change).
+- **Phase 2 (next)** — wire the PDF-upload flow end-to-end:
+  remodel `UploadedStatement` to fit its actual purpose (§3/§5.3); add
+  `POST /api/statements/upload` (multipart PDF) that forwards the file to
+  the external NLP microservice, receives back categorized transactions,
+  maps category names to internal `Category` ids, creates the
+  `UploadedStatement` tracking record, and calls
+  `ExpensePdfService.SaveBulkExpenses` to persist them as `Expense` rows
+  with `source=PDF_IMPORT`.
 - **Phase 3** — analytics/KPI aggregation endpoints (spend-by-category,
   monthly trend, income vs. expense) to feed the dashboard.
-- **Phase 4** — FastAPI + Hugging Face microservice for NLP transaction
-  categorization, called asynchronously from the Spring Boot service layer.
-- **Phase 5** — React SPA (auth, CRUD screens, Recharts dashboard).
-- **Phase 6** — role-based authorization enforcement, Docker Compose for the
-  full stack, secret rotation.
+- **Phase 4** — React SPA: auth, manual-entry screens, PDF upload UI,
+  Recharts dashboard consuming Phase 3's endpoints.
+- **Phase 5** — RBAC enforcement made consistent across all endpoints
+  (not just `getAllExpense`), Docker Compose bundling Spring Boot + MySQL +
+  the NLP microservice, secret rotation for production.
 
 This document should be updated as each phase lands so it stays a true
 reflection of the system rather than a snapshot of intent.

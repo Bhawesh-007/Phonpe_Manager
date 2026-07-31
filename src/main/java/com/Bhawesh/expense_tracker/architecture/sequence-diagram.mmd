@@ -6,6 +6,9 @@ sequenceDiagram
     participant Acc as AccountController/Service
     participant Exp as ExpenseController/Service
     participant Txn as TransactionController/Service
+    participant Stmt as StatementController [PLANNED]
+    participant ML as NLP Microservice [external, DONE]
+    participant Pdf as ExpensePdfService
     participant Repo as JPA Repositories
     participant DB as MySQL
 
@@ -69,3 +72,21 @@ sequenceDiagram
     Txn->>Repo: save(Transaction{status=SUCCESS})
     Repo->>DB: INSERT INTO transactions
     Txn-->>C: 200 Transaction
+
+    Note over C,DB: 7. Upload bank statement PDF [NOT WIRED YET - Phase 2]
+    C->>Stmt: POST /api/statements/upload {accountId, file=statement.pdf}
+    Stmt->>Repo: save(UploadedStatement{status=PENDING})
+    Repo->>DB: INSERT INTO uploaded_statement
+    Stmt->>ML: forward PDF bytes
+    ML->>ML: extract transactions + categorize (Hugging Face model)
+    ML-->>Stmt: [{amount, date, description, categoryName}, ...]
+    Stmt->>Repo: findByName(categoryName) per transaction
+    Repo->>DB: SELECT * FROM categories WHERE name=?
+    Stmt->>Stmt: map categoryName -> categoryId
+    Stmt->>Pdf: SaveBulkExpenses(accountId, transactions[categoryId resolved])
+    Pdf->>Repo: getReferenceById(accountId), getReferenceById(categoryId) x N
+    Pdf->>Repo: saveAll(Expense[source=PDF_IMPORT])
+    Repo->>DB: INSERT INTO expense (bulk)
+    Stmt->>Repo: save(UploadedStatement{status=PROCESSED, transactionCount=N})
+    Repo->>DB: UPDATE uploaded_statement
+    Stmt-->>C: 200 { imported: N }

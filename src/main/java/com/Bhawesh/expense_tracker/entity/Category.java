@@ -21,6 +21,10 @@ public class Category {
     private Long id;
     @Column(nullable = false)
     private String name;
+    //many categories should belong to one user
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id" ,  nullable = false)
+    private User user;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CategoryType type;

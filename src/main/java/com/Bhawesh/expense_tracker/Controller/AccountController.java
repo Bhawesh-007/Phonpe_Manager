@@ -42,6 +42,23 @@ public class AccountController {
         List<Account> account = accountRepository.findByUserId(userid);
         return ResponseEntity.ok(account);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Account> getAccountById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(accountService.getAccountById(id, currentUser));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Account> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequestDto request, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(accountService.updateAccount(id, request, currentUser));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteAccount(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        accountService.deleteAccount(id, currentUser);
+        return ResponseEntity.noContent().build();
+    }
+
     public boolean UserorAdmin(Long id , User currentUser){
         boolean isUser = currentUser.getId().equals(id);
         boolean isAdmin = currentUser.getRole().equals(Role.ADMIN);

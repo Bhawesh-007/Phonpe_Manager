@@ -4,6 +4,7 @@ import com.Bhawesh.expense_tracker.dto.AccountRequestDto;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.Role;
+import com.Bhawesh.expense_tracker.exception.BusinessRuleViolationException;
 import com.Bhawesh.expense_tracker.exception.ResourceNotFoundException;
 import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
@@ -28,6 +29,13 @@ public class AccountService {
 
     }
 
+    public Account getAccountById(Long id, User currentUser) {
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + id));
+        assertOwnerOrAdmin(account, currentUser);
+        return account;
+    }
+
     @Transactional
     public Account updateAccount(Long id, AccountRequestDto request, User currentUser) {
         Account account = accountRepository.findById(id)
@@ -44,7 +52,7 @@ public class AccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + id));
         assertOwnerOrAdmin(account, currentUser);
         if (transactionRepository.existsBySenderAccount_IdOrReceiverAccount_Id(id, id)) {
-            throw new IllegalStateException("Cannot delete an account with existing transactions");
+            throw new BusinessRuleViolationException("Cannot delete an account with existing transactions");
         }
         accountRepository.delete(account);
     }

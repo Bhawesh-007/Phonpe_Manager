@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByType(CategoryType type);
+    long countByUserId(Long userId);
+    List<Category> findByUserId(Long userId);
 }

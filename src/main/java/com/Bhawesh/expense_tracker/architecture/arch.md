@@ -1,5 +1,21 @@
 # PhonePe Manager - System Architecture Diagram
 
+## 0. Product Vision
+
+Personal expense tracker. Two ways to get expenses in:
+
+1. **Manual entry** — user logs a transaction directly.
+2. **Bank statement upload** — user uploads a PDF; the system auto-detects
+   the transactions inside it, categorizes them, and reflects them in the app.
+
+Categorization (path 2) is handled by a separate NLP microservice (FastAPI +
+Hugging Face), already built and working in its own repo. It accepts an
+uploaded PDF directly and returns a categorized transaction list. This
+Spring Boot backend does not call it yet — that's the next integration
+milestone.
+
+---
+
 ## 1. High-Level System Architecture
 
 ```mermaid
@@ -16,12 +32,12 @@ graph TB
         REPO["💾 Spring Data JPA<br/>Repositories"]
     end
 
-    subgraph ML["🤖 NLP Microservice (PLANNED)"]
-        FASTAPI["FastAPI Service"]
+    subgraph ML["🤖 NLP Microservice (DONE, external repo)"]
+        FASTAPI["FastAPI Service<br/>accepts PDF upload"]
         HF["🧠 Hugging Face<br/>Category Model"]
     end
 
-    subgraph Data["��� Data Layer"]
+    subgraph Data["🗄️ Data Layer"]
         DB[("🗄️ MySQL<br/>phonepe_manager")]
     end
 
@@ -30,9 +46,10 @@ graph TB
     SEC --> SVC
     SVC --> REPO
     REPO --> DB
-    SVC -.->|async call| FASTAPI
+    SVC -.->|forward PDF - NOT WIRED YET| FASTAPI
     FASTAPI --> HF
-    HF -.->|result| SVC
+    HF -.->|categorized transactions| FASTAPI
+    FASTAPI -.->|categorized transactions| SVC
 
     style Client fill:#e1f5ff
     style Backend fill:#f3e5f5
@@ -48,25 +65,25 @@ graph TB
 graph LR
     subgraph Layers["🏗️ Backend Layers"]
         direction TB
-        
+
         subgraph Layer1["REST Endpoints<br/>(Request/Response)"]
-            CTR["📡 Controller<br/>- AuthController<br/>- ExpenseController<br/>- TransactionController<br/>- AccountController"]
+            CTR["📡 Controller<br/>- AuthController<br/>- ExpenseController (full CRUD)<br/>- TransactionController<br/>- AccountController (create + list only)"]
         end
-        
+
         subgraph Layer2["Business Logic<br/>(@Transactional)"]
-            SRV["⚙️ Service<br/>- AuthService<br/>- ExpenseService<br/>- TransactionService<br/>- AccountService<br/>- ExpensePdfService"]
+            SRV["⚙️ Service<br/>- AuthService<br/>- ExpenseService<br/>- TransactionService<br/>- AccountService<br/>- ExpensePdfService (orphaned - no caller)"]
         end
-        
+
         subgraph Layer3["Data Access"]
-            REP["💿 Repository<br/>- UserRepository<br/>- AccountRepository<br/>- ExpenseRepository<br/>- TransactionRepository<br/>- CategoryRepository<br/>- DebtRecordRepository"]
+            REP["💿 Repository<br/>- UserRepository<br/>- AccountRepository<br/>- ExpenseRepository<br/>- TransactionRepository<br/>- CategoryRepository<br/>- DebtRecordRepository<br/>- UploadedStatementRepository"]
         end
-        
+
         subgraph Layer4["Domain Models"]
-            ENT["🔗 Entity<br/>- User<br/>- Account<br/>- Expense<br/>- Transaction<br/>- Category<br/>- DebtRecord"]
+            ENT["🔗 Entity<br/>- User<br/>- Account<br/>- Expense<br/>- Transaction<br/>- Category<br/>- DebtRecord<br/>- UploadedStatement (mismodeled)"]
         end
-        
+
         subgraph Layer5["Transfer Objects"]
-            DTO["📦 DTO<br/>- AuthRequest/Response<br/>- ExpenseRequestDTO<br/>- TransactionDTO<br/>- AccountRequestDTO"]
+            DTO["📦 DTO<br/>- AuthRequest/Response<br/>- ExpenserequestDTO<br/>- TransactionDTO<br/>- AccountRequestDTO<br/>- BulkRequestDTO"]
         end
     end
 
@@ -154,12 +171,12 @@ erDiagram
     UPLOADED_STATEMENT {
         Long id PK
         Long user_id FK
-        string personName
-        BigDecimal amount
-        DebtType type
-        DebtStatus status
+        string personName "mismodeled - should be fileName"
+        BigDecimal amount "mismodeled - not a single amount"
+        DebtType type "mismodeled - wrong vocabulary"
+        DebtStatus status "mismodeled - needs PENDING/PROCESSED/FAILED"
         LocalDateTime createdAt
-        LocalDateTime dueDate
+        LocalDateTime dueDate "mismodeled - not applicable"
     }
 ```
 
@@ -182,7 +199,7 @@ sequenceDiagram
     Controller-->>Client: {token: JWT}
 
     Note over Client,Service: Authenticated Request
-    Client->>Filter: GET /api/expenses<br/>Authorization: Bearer JWT
+    Client->>Filter: GET /api/expenses/me<br/>Authorization: Bearer JWT
     Filter->>Filter: Extract username<br/>from JWT
     Filter->>Filter: Validate token<br/>(signature + expiry)
     Filter->>SecurityCtx: Set Authentication<br/>UsernamePasswordAuthenticationToken
@@ -199,15 +216,15 @@ sequenceDiagram
 | Feature | Entity | Repository | Service | Controller | Status |
 |---------|:------:|:----------:|:-------:|:----------:|:------:|
 | **Auth** | ✅ | ✅ | ✅ | ✅ | DONE |
-| **Account** | ✅ | ⚠️ | ✅ | ✅ | PARTIAL |
-| **Expense** | ✅ | ✅ | ✅ | ⚠️ | PARTIAL |
+| **Account** | ✅ | ✅ | ✅ | ⚠️ create + list only | PARTIAL |
+| **Expense** | ✅ | ✅ | ✅ | ✅ full CRUD | DONE |
 | **Transaction** | ✅ | ✅ | ✅ | ✅ | DONE |
-| **Category** | ✅ | ✅ | ❌ | ❌ | MISSING |
+| **Category** | ✅ | ✅ | ❌ | ❌ | MISSING (blocks Expense creation) |
 | **DebtRecord** | ✅ | ✅ | ❌ | ❌ | MISSING |
-| **UploadedStatement** | ✅ | ✅ | ❌ | ❌ | MISSING |
-| **Bulk PDF Import** | - | - | ✅ | ❌ | PARTIAL |
+| **UploadedStatement** | ⚠️ mismodeled | ✅ | ❌ | ❌ | MISSING |
+| **Bulk PDF Import (backend)** | - | - | ✅ | ❌ | PARTIAL - nothing calls the service |
+| **NLP Categorization** | - | - | ✅ external repo | - | DONE, not yet integrated from this backend |
 | **Analytics/KPI** | - | - | ❌ | ❌ | MISSING |
-| **NLP Categorization** | - | - | ❌ (Python) | ❌ | MISSING |
 
 ---
 
@@ -216,20 +233,20 @@ sequenceDiagram
 ```mermaid
 graph TD
     API["🌐 REST API<br/>/api/..."]
-    
+
     AUTH["🔐 /api/auth<br/>- POST /register<br/>- POST /login"]
-    
-    EXPENSE["📊 /api/expenses<br/>- GET /all<br/>- GET /{id}<br/>- POST /create<br/>- GET /account/{id}"]
-    
-    TRANSACTION["💸 /api/transactions<br/>- POST /send<br/>- GET /{id}<br/>- GET /all"]
-    
-    ACCOUNT["💰 /accounts<br/>- POST /create<br/>(⚠️ No /api prefix)"]
-    
+
+    EXPENSE["📊 /api/expenses<br/>- POST (create)<br/>- GET /me<br/>- GET (all, admin)<br/>- GET /{id}<br/>- GET /account/{accountId}<br/>- PUT /{id}<br/>- DELETE /{id}"]
+
+    TRANSACTION["💸 /api/transactions<br/>- POST /transfer"]
+
+    ACCOUNT["💰 /api/accounts<br/>- POST /create<br/>- GET /user/{userid}/accounts"]
+
     API --> AUTH
     API --> EXPENSE
     API --> TRANSACTION
     API --> ACCOUNT
-    
+
     style API fill:#1976d2,color:#fff
     style AUTH fill:#388e3c,color:#fff
     style EXPENSE fill:#d32f2f,color:#fff
@@ -248,31 +265,29 @@ graph TD
 📤 ExpenseSource:     MANUAL | PDF_IMPORT
 ✅ TransactionStatus: SUCCESS | FAILED | PENDING
 💳 DebtType:          BORROWED | DEBT
-⏳ DebtStatus:        PENDING | STATUS | OVERDUE
+⏳ DebtStatus:        PENDING | STATUS | OVERDUE  ⚠️ STATUS looks like a placeholder
 ```
 
 ---
 
 ## 8. Known Issues & Roadmap
 
-### Current Issues (§5)
-- ❌ Inconsistent routing (`/api/**` vs `/accounts`)
-- ❌ No ownership scoping on Expense reads
-- ❌ Controllers return JPA entities instead of DTOs
-- ❌ Secrets hardcoded in `application.properties`
+### Current Issues
+- ⚠️ Controllers return JPA entities instead of DTOs (over-serialization risk on lazy relations)
+- ⚠️ Secrets-to-`.env` fix drafted but not committed yet
+- ⚠️ `UploadedStatement` entity reuses debt vocabulary — needs remodeling before Phase 2
+- ⚠️ `DebtStatus.STATUS` looks like a placeholder value
 
 ### Roadmap
 
-| Phase | Features | Timeline |
-|-------|----------|----------|
-| **Phase 1** | CRUD gaps (Category, Account, DebtRecord), wire bulk import, fix inconsistencies | Current |
-| **Phase 2** | PDF statement upload/parsing, UploadedStatement service | Next |
-| **Phase 3** | Analytics & KPI endpoints for dashboard | Q3 2026 |
-| **Phase 4** | FastAPI + Hugging Face NLP service | Q4 2026 |
-| **Phase 5** | React SPA frontend | Q4 2026 |
-| **Phase 6** | RBAC, Docker Compose, secret rotation | Q1 2027 |
+| Phase | Features |
+|-------|----------|
+| **Phase 1 (current)** | Category service/controller (blocking), Account get/update/delete, DebtRecord service/controller, DTO responses, land secrets fix |
+| **Phase 2 (next)** | Remodel `UploadedStatement`; `POST /api/statements/upload`; forward PDF to external NLP microservice; map returned categories to internal `Category` ids; call `ExpensePdfService.SaveBulkExpenses` |
+| **Phase 3** | Analytics & KPI endpoints for dashboard (spend-by-category, monthly trend, income vs expense) |
+| **Phase 4** | React SPA — auth, manual entry, PDF upload UI, Recharts dashboard |
+| **Phase 5** | Consistent RBAC enforcement, Docker Compose (Spring Boot + MySQL + NLP microservice), secret rotation |
 
 ---
 
-**Last Updated:** July 2026  
-**Status:** Architecture Phase 1 (In Progress)
+**Last Updated:** 2026-07-31
