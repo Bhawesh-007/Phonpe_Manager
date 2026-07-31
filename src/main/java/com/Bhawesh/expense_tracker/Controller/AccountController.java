@@ -1,6 +1,7 @@
 package com.Bhawesh.expense_tracker.Controller;
 
 import com.Bhawesh.expense_tracker.dto.AccountRequestDto;
+import com.Bhawesh.expense_tracker.dto.AccountResponseDto;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.Role;
@@ -16,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -26,31 +28,30 @@ public class AccountController {
     private final ExpenseService expenseService;
     private final UserRepository userRepository;
     @PostMapping("/create")
-    public ResponseEntity<?> createAccount(
+    public ResponseEntity<AccountResponseDto> createAccount(
             @Valid @RequestBody AccountRequestDto request,
             @AuthenticationPrincipal User currentUser
     ) {
         Account createdAccount = accountService.createAccount(request, currentUser);
-
-        return ResponseEntity.ok(createdAccount.getAccountType() + " account created successfully with ID: " + createdAccount.getId());
+        return new ResponseEntity<>(AccountResponseDto.fromEntity(createdAccount), org.springframework.http.HttpStatus.CREATED);
     }
     //now i have to make an endpoint for the user to fetch different accounts
     //
     @GetMapping("/user/{userid}/accounts")
-    public ResponseEntity<List<Account>> getUserAccounts(@PathVariable Long userid , @AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<List<AccountResponseDto>> getUserAccounts(@PathVariable Long userid , @AuthenticationPrincipal User currentUser) {
         UserorAdmin(userid , currentUser);
         List<Account> account = accountRepository.findByUserId(userid);
-        return ResponseEntity.ok(account);
+        return ResponseEntity.ok(account.stream().map(AccountResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Account> getAccountById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(accountService.getAccountById(id, currentUser));
+    public ResponseEntity<AccountResponseDto> getAccountById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(AccountResponseDto.fromEntity(accountService.getAccountById(id, currentUser)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Account> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequestDto request, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(accountService.updateAccount(id, request, currentUser));
+    public ResponseEntity<AccountResponseDto> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequestDto request, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(AccountResponseDto.fromEntity(accountService.updateAccount(id, request, currentUser)));
     }
 
     @DeleteMapping("/{id}")

@@ -1,6 +1,7 @@
 package com.Bhawesh.expense_tracker.Controller;
 
 import com.Bhawesh.expense_tracker.dto.CategoryRequestDto;
+import com.Bhawesh.expense_tracker.dto.CategoryResponseDto;
 import com.Bhawesh.expense_tracker.entity.Category;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.service.CategoryService;
@@ -12,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,24 +22,24 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @PostMapping
-    public ResponseEntity<Category> create(@Valid @RequestBody CategoryRequestDto categoryreq, @AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<CategoryResponseDto> create(@Valid @RequestBody CategoryRequestDto categoryreq, @AuthenticationPrincipal User currentUser) {
         Category createdCategory = categoryService.createCategory(categoryreq, currentUser);
-        return new ResponseEntity<>(createdCategory, HttpStatus.CREATED);
+        return new ResponseEntity<>(CategoryResponseDto.fromEntity(createdCategory), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<Category>> getAllCategories() {
-        return ResponseEntity.ok(categoryService.getAllCategories());
+    public ResponseEntity<List<CategoryResponseDto>> getAllCategories() {
+        return ResponseEntity.ok(categoryService.getAllCategories().stream().map(CategoryResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<Category>> getMyCategories(@AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(categoryService.getMyCategories(currentUser));
+    public ResponseEntity<List<CategoryResponseDto>> getMyCategories(@AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(categoryService.getMyCategories(currentUser).stream().map(CategoryResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Category> updateCategory(@PathVariable Long id, @Valid @RequestBody CategoryRequestDto categoryreq, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(categoryService.updateCategory(id, categoryreq, currentUser));
+    public ResponseEntity<CategoryResponseDto> updateCategory(@PathVariable Long id, @Valid @RequestBody CategoryRequestDto categoryreq, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(CategoryResponseDto.fromEntity(categoryService.updateCategory(id, categoryreq, currentUser)));
     }
 
     @DeleteMapping("/{id}")
