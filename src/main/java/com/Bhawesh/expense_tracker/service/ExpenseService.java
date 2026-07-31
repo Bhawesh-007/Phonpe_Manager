@@ -6,6 +6,7 @@ import com.Bhawesh.expense_tracker.entity.Category;
 import com.Bhawesh.expense_tracker.entity.Expense;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.Role;
+import com.Bhawesh.expense_tracker.exception.BusinessRuleViolationException;
 import com.Bhawesh.expense_tracker.exception.ResourceNotFoundException;
 import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
@@ -32,7 +33,7 @@ public class ExpenseService {
        Account account = accountRepository.findById(request.getAccountId()).orElseThrow(()-> new ResourceNotFoundException("Account not found"));
        Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(()-> new ResourceNotFoundException("Category not found"));
        if(account.getBalance().compareTo(request.getAmount()) < 0){
-           throw new RuntimeException("Insufficient balance");
+           throw new BusinessRuleViolationException("Insufficient balance");
        }
        account.setBalance(account.getBalance().subtract(request.getAmount()));
        accountRepository.save(account);
@@ -89,18 +90,18 @@ public class ExpenseService {
 
 
        Expense existingExpense = expenseRepository.findById(id)
-               .orElseThrow(() -> new RuntimeException("Expense not found with id: " + id));
+               .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
        assertOwnerOrAdmin(existingExpense.getAccount(),currentUser );
        //fetch the target account and category
        Account newAccount = accountRepository.findById(request.getAccountId())
-               .orElseThrow(() -> new RuntimeException("Account not found with id: " + request.getAccountId()));
+               .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + request.getAccountId()));
        Category category = categoryRepository.findById(request.getCategoryId())
-               .orElseThrow(() -> new RuntimeException("Category not found with id: " + request.getCategoryId()));
+               .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
        Account oldAccount = existingExpense.getAccount();
        oldAccount.setBalance(oldAccount.getBalance().add(existingExpense.getAmount()));
        accountRepository.save(oldAccount);
        if(newAccount.getBalance().compareTo(request.getAmount()) < 0){
-           throw new RuntimeException("Insufficient balance in the account");
+           throw new BusinessRuleViolationException("Insufficient balance in the account");
        }
        newAccount.setBalance(newAccount.getBalance().subtract(request.getAmount()));
        accountRepository.save(newAccount);
@@ -121,7 +122,7 @@ public class ExpenseService {
         // 1. Fetch the existing expense
 
         Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Expense not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
         assertOwnerOrAdmin(expense.getAccount(), currentUser);
         // 2. Refund the money back to the linked account
         Account account = expense.getAccount();
