@@ -1,6 +1,7 @@
 package com.Bhawesh.expense_tracker.Controller;
 
 import com.Bhawesh.expense_tracker.dto.DebtRecordRequestDto;
+import com.Bhawesh.expense_tracker.dto.DebtRecordResponseDto;
 import com.Bhawesh.expense_tracker.entity.DebtRecord;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.DebtStatus;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,28 +23,28 @@ public class DebtRecordController {
     private final DebtRecordService debtRecordService;
 
     @PostMapping
-    public ResponseEntity<DebtRecord> createDebtRecord(@Valid @RequestBody DebtRecordRequestDto request, @AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<DebtRecordResponseDto> createDebtRecord(@Valid @RequestBody DebtRecordRequestDto request, @AuthenticationPrincipal User currentUser) {
         DebtRecord createdDebtRecord = debtRecordService.createDebtRecord(request, currentUser);
-        return new ResponseEntity<>(createdDebtRecord, HttpStatus.CREATED);
+        return new ResponseEntity<>(DebtRecordResponseDto.fromEntity(createdDebtRecord), HttpStatus.CREATED);
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<DebtRecord>> getMyDebtRecords(@AuthenticationPrincipal User currentUser,
+    public ResponseEntity<List<DebtRecordResponseDto>> getMyDebtRecords(@AuthenticationPrincipal User currentUser,
                                                                @RequestParam(required = false) DebtStatus status) {
-        if (status != null) {
-            return ResponseEntity.ok(debtRecordService.getMyDebtRecordsByStatus(currentUser, status));
-        }
-        return ResponseEntity.ok(debtRecordService.getMyDebtRecords(currentUser));
+        List<DebtRecord> records = status != null
+                ? debtRecordService.getMyDebtRecordsByStatus(currentUser, status)
+                : debtRecordService.getMyDebtRecords(currentUser);
+        return ResponseEntity.ok(records.stream().map(DebtRecordResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DebtRecord> getDebtRecordById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(debtRecordService.getDebtRecordById(id, currentUser));
+    public ResponseEntity<DebtRecordResponseDto> getDebtRecordById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(DebtRecordResponseDto.fromEntity(debtRecordService.getDebtRecordById(id, currentUser)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DebtRecord> updateDebtRecord(@PathVariable Long id, @Valid @RequestBody DebtRecordRequestDto request, @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(debtRecordService.updateDebtRecord(id, request, currentUser));
+    public ResponseEntity<DebtRecordResponseDto> updateDebtRecord(@PathVariable Long id, @Valid @RequestBody DebtRecordRequestDto request, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(DebtRecordResponseDto.fromEntity(debtRecordService.updateDebtRecord(id, request, currentUser)));
     }
 
     @DeleteMapping("/{id}")
