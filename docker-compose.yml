@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: phonepe-mysql
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: phonepe_manager
+    ports:
+      - "3306:3306"
+    volumes:
+      - phonepe-mysql-data:/var/lib/mysql
+
+volumes:
+  phonepe-mysql-data:

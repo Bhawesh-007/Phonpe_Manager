@@ -1,5 +1,6 @@
 package com.Bhawesh.expense_tracker.Controller;
 
+import com.Bhawesh.expense_tracker.dto.StatementResponseDto;
 import com.Bhawesh.expense_tracker.entity.UploadedStatement;
 import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.service.StatementService;
@@ -19,12 +20,12 @@ public class StatementController {
     private final StatementService statementService;
 
     @PostMapping("/upload")
-    public ResponseEntity<UploadedStatement> uploadStatement(
+    public ResponseEntity<StatementResponseDto> uploadStatement(
             @RequestParam("file") MultipartFile file,
             @RequestParam("accountId") Long accountId,
             @AuthenticationPrincipal User currentUser
     ) {
         UploadedStatement statement = statementService.uploadStatement(file, accountId, currentUser);
-        return ResponseEntity.ok(statement);
+        return ResponseEntity.ok(StatementResponseDto.fromEntity(statement));
     }
 }
