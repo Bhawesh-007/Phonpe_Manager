@@ -49,6 +49,12 @@ public class AccountController {
         return ResponseEntity.ok(AccountResponseDto.fromEntity(accountService.getAccountById(id, currentUser)));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<List<AccountResponseDto>> getMyAccounts(@AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(accountRepository.findByUserId(currentUser.getId()).stream()
+                .map(AccountResponseDto::fromEntity).collect(Collectors.toList()));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<AccountResponseDto> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequestDto request, @AuthenticationPrincipal User currentUser) {
         return ResponseEntity.ok(AccountResponseDto.fromEntity(accountService.updateAccount(id, request, currentUser)));

@@ -1,11 +1,14 @@
 package com.Bhawesh.expense_tracker.service;
 
-import com.Bhawesh.expense_tracker.dto.TransactionDTO;
+import com.Bhawesh.expense_tracker.dto.StatementReviewItemDto;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.Category;
 import com.Bhawesh.expense_tracker.entity.Expense;
+import com.Bhawesh.expense_tracker.entity.User;
 import com.Bhawesh.expense_tracker.enums.ExpenseSource;
-import com.Bhawesh.expense_tracker.repository.AccountRepository;
+import com.Bhawesh.expense_tracker.exception.BusinessRuleViolationException;
+import com.Bhawesh.expense_tracker.exception.ResourceNotFoundException;
+import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.CategoryRepository;
 import com.Bhawesh.expense_tracker.repository.ExpenseRepository;
 import jakarta.transaction.Transactional;
@@ -14,40 +17,48 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ExpensePdfService {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
-    private final AccountRepository accountRepository;
 
-    // Constructor Injection
-    public ExpensePdfService(ExpenseRepository expenseRepository,
-                          CategoryRepository categoryRepository,
-                          AccountRepository accountRepository) {
-        this.expenseRepository = expenseRepository;
-        this.categoryRepository = categoryRepository;
-        this.accountRepository = accountRepository;
-    }
+    /** Validates every row before changing the balance, so confirmation is all-or-nothing. */
     @Transactional
-    public void SaveBulkExpenses(Long accountId , List<TransactionDTO> transactions){
-        //converting list of dtos into list of entities
-        Account accountproxy = accountRepository.getReferenceById(accountId);
-        List<Expense>ExpensesToSave = transactions.stream().map(transactionDTO -> {
-            Category categoryproxy = categoryRepository.getReferenceById(transactionDTO.getCategoryId());
-            return Expense.builder()
-                    .account(accountproxy)
-                    .category(categoryproxy)
-                    .amount(BigDecimal.valueOf(transactionDTO.getAmount()))
-                    .Description(transactionDTO.getNote())
-                    .timestamp(transactionDTO.getTimestamp())
-                    .source(ExpenseSource.PDF_IMPORT)
-                    .build();
+    public List<Expense> saveConfirmedExpenses(Account account, User currentUser, List<StatementReviewItemDto> transactions) {
+        if (!account.getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedAccessException("You do not have access to this account");
+        }
 
+        List<Category> categories = transactions.stream().map(item -> {
+            Category category = categoryRepository.findById(item.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + item.getCategoryId()));
+            if (!category.getUser().getId().equals(currentUser.getId())) {
+                throw new UnauthorizedAccessException("You do not have access to category " + item.getCategoryId());
+            }
+            return category;
+        }).toList();
 
+        BigDecimal total = transactions.stream().map(StatementReviewItemDto::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (account.getBalance().compareTo(total) < 0) {
+            throw new BusinessRuleViolationException("Insufficient balance for this statement import");
+        }
 
-        }).collect(Collectors.toList());
-        expenseRepository.saveAll(ExpensesToSave);
+        List<Expense> expenses = java.util.stream.IntStream.range(0, transactions.size())
+                .mapToObj(index -> {
+                    StatementReviewItemDto item = transactions.get(index);
+                    return Expense.builder()
+                            .account(account)
+                            .category(categories.get(index))
+                            .amount(item.getAmount())
+                            .Description(item.getNote())
+                            .timestamp(item.getTimestamp())
+                            .source(ExpenseSource.PDF_IMPORT)
+                            .build();
+                }).toList();
+        account.setBalance(account.getBalance().subtract(total));
+        return expenseRepository.saveAll(expenses);
     }
 }

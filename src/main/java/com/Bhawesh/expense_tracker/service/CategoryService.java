@@ -18,7 +18,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
-    private static final int MAX_CATEGORIES_PER_USER = 5;
+    private static final int MAX_CATEGORIES_PER_USER = 20;
 
     private final CategoryRepository categoryRepository;
     private final ExpenseRepository expenseRepository;

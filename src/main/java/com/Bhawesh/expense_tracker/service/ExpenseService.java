@@ -29,9 +29,13 @@ public class ExpenseService {
    private final CategoryRepository categoryRepository;
 
    @Transactional
-    public Expense createExpense(ExpenserequestDTO request){
+    public Expense createExpense(ExpenserequestDTO request, User currentUser){
        Account account = accountRepository.findById(request.getAccountId()).orElseThrow(()-> new ResourceNotFoundException("Account not found"));
        Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(()-> new ResourceNotFoundException("Category not found"));
+       assertOwnerOrAdmin(account, currentUser);
+       if (!category.getUser().getId().equals(currentUser.getId()) && currentUser.getRole() != Role.ADMIN) {
+           throw new UnauthorizedAccessException("You do not have access to this category");
+       }
        if(account.getBalance().compareTo(request.getAmount()) < 0){
            throw new BusinessRuleViolationException("Insufficient balance");
        }
@@ -97,6 +101,10 @@ public class ExpenseService {
                .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + request.getAccountId()));
        Category category = categoryRepository.findById(request.getCategoryId())
                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+       assertOwnerOrAdmin(newAccount, currentUser);
+       if (!category.getUser().getId().equals(currentUser.getId()) && currentUser.getRole() != Role.ADMIN) {
+           throw new UnauthorizedAccessException("You do not have access to this category");
+       }
        Account oldAccount = existingExpense.getAccount();
        oldAccount.setBalance(oldAccount.getBalance().add(existingExpense.getAmount()));
        accountRepository.save(oldAccount);

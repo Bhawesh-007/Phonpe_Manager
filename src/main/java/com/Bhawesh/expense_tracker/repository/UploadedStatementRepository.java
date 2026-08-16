@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface UploadedStatementRepository extends JpaRepository<UploadedStatement, Long> {
-    List<UploadedStatement> findByUserId(Long userId);;
+    List<UploadedStatement> findByUserIdOrderByUploadedAtDesc(Long userId);
 }

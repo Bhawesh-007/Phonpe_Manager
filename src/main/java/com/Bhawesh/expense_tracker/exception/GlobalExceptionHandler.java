@@ -29,6 +29,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(StatementParsingException.class)
     public ResponseEntity<ErrorResponse> handleStatementParsing(StatementParsingException ex) {
         return build(HttpStatus.BAD_GATEWAY, ex.getMessage());

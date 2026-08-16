@@ -10,9 +10,8 @@ Personal expense tracker. A user gets to their spend data two ways:
    in the app without manual entry.
 
 The categorization for path (2) is done by a separate NLP microservice
-(FastAPI + Hugging Face model), already built and working in its own repo.
-This repo (Spring Boot backend) does not yet call it — that wiring is the
-next integration milestone (Phase 2 below).
+(FastAPI + Hugging Face model). Spring Boot calls it privately, presents the
+results for user review, and imports only after confirmation.
 
 This document describes the system as it exists today, plus the parts of the
 target architecture that are not built yet. Status tags on every component:
@@ -88,9 +87,9 @@ of response DTOs — see known issues).
 | Category | [DONE] | [DONE] | [MISSING] | [MISSING] | No way to create categories via API — blocks manual Expense creation, which requires a `categoryId` |
 | DebtRecord | [DONE] | [DONE] | [MISSING] | [MISSING] | Modeled, unbuilt |
 | UploadedStatement | [DONE] (mismodeled, see §5) | [DONE] | [MISSING] | [MISSING] | Needed to track PDF-upload status (Phase 2) |
-| Bulk PDF import (backend side) | — | — | [PARTIAL] `ExpensePdfService.SaveBulkExpenses` | [MISSING] | Takes an already-categorized `List<TransactionDTO>` + accountId and persists as `Expense` rows with `source=PDF_IMPORT`. Nothing calls it yet — no controller, no HTTP client to the microservice |
-| NLP categorization | — | — | [DONE], external repo | — | Separate FastAPI + Hugging Face service, accepts PDF upload directly, returns categorized transactions. Working, not yet called from this backend |
-| Analytics/KPI | — | — | [MISSING] | [MISSING] | Needed to feed Recharts dashboard |
+| Statement import | [DONE] | [DONE] | [DONE] parse + confirm | [DONE] `/api/statements/**` | Parser results are reviewed before atomic import; statement history is retained |
+| NLP categorization | — | — | [DONE], external repo | — | Spring Boot forwards PDF uploads internally and resolves returned category names to user-owned categories |
+| Analytics/KPI | — | — | [DONE] | [DONE] `/api/analytics/overview` | Returns totals, monthly spend, and category spend for the dashboard |
 
 ---
 
