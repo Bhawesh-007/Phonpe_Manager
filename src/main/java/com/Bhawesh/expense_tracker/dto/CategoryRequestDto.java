@@ -12,4 +12,5 @@ public class CategoryRequestDto {
 
     @NotNull(message = "Category type is required (e.g., EXPENSE, INCOME)")
     private CategoryType categoryType;
+    private String description;
 }

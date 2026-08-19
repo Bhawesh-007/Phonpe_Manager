@@ -32,6 +32,7 @@ public class CategoryService {
                 .name(categoryreq.getCategoryName())
                 .type(categoryreq.getCategoryType())
                 .user(currentUser)
+                .description(categoryreq.getDescription())
                 .build();
         return categoryRepository.save(category);
     }
@@ -51,6 +52,7 @@ public class CategoryService {
         assertOwnerOrAdmin(category, currentUser);
         category.setName(categoryreq.getCategoryName());
         category.setType(categoryreq.getCategoryType());
+        category.setDescription(categoryreq.getDescription());
         return categoryRepository.save(category);
     }
 

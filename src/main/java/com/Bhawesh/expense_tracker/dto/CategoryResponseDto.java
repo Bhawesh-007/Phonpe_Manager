@@ -10,6 +10,7 @@ import lombok.Data;
 public class CategoryResponseDto {
     private Long id;
     private String name;
+    private String description;
     private CategoryType type;
     private Long userId;
 
@@ -17,6 +18,7 @@ public class CategoryResponseDto {
         return new CategoryResponseDto(
                 category.getId(),
                 category.getName(),
+                category.getDescription(),
                 category.getType(),
                 category.getUser().getId()
         );

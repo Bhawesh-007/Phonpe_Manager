@@ -14,6 +14,7 @@ public class AccountResponseDto {
     private Long id;
     private Long userId;
     private BigDecimal balance;
+    private BigDecimal creditLimit;
     private AccountType accountType;
     private LocalDateTime createdAt;
 
@@ -22,6 +23,7 @@ public class AccountResponseDto {
                 account.getId(),
                 account.getUser().getId(),
                 account.getBalance(),
+                account.getCreditLimit(),
                 account.getAccountType(),
                 account.getCreatedAt()
         );

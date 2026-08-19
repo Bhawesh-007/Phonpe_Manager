@@ -25,6 +25,7 @@ public class Category {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id" ,  nullable = false)
     private User user;
+    private String description;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CategoryType type;

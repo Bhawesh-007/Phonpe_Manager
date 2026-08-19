@@ -23,6 +23,7 @@ public class AccountService {
         Account account = new Account().builder()
                 .accountType(request.getAccountType())
                 .balance(request.getInitialBalance())
+                .creditLimit(request.getCreditLimit())
                 .user(currentUser)
                 .build();
         return accountRepository.save(account);
@@ -43,6 +44,7 @@ public class AccountService {
         assertOwnerOrAdmin(account, currentUser);
         account.setAccountType(request.getAccountType());
         account.setBalance(request.getInitialBalance());
+        account.setCreditLimit(request.getCreditLimit());
         return accountRepository.save(account);
     }
 

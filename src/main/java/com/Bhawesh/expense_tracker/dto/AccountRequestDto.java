@@ -17,4 +17,6 @@ public class AccountRequestDto {
     @NotNull(message = "Initial balance is required")
     @PositiveOrZero(message = "Initial balance cannot be negative")
     private BigDecimal initialBalance;
+    
+    private BigDecimal creditLimit;
 }

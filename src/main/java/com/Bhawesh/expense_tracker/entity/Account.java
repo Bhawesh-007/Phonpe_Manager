@@ -27,6 +27,7 @@ public class Account {
     private User user;
     @Column(nullable = false , precision = 19 , scale = 4)
     private BigDecimal balance;
+    private BigDecimal creditLimit;
     @Enumerated (EnumType.STRING)
     @Column(nullable = false)
     private AccountType accountType;

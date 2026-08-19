@@ -4,6 +4,7 @@ import com.Bhawesh.expense_tracker.dto.AccountRequestDto;
 import com.Bhawesh.expense_tracker.dto.AccountResponseDto;
 import com.Bhawesh.expense_tracker.entity.Account;
 import com.Bhawesh.expense_tracker.entity.User;
+import com.Bhawesh.expense_tracker.enums.AccountType;
 import com.Bhawesh.expense_tracker.enums.Role;
 import com.Bhawesh.expense_tracker.exception.UnauthorizedAccessException;
 import com.Bhawesh.expense_tracker.repository.AccountRepository;
@@ -27,6 +28,7 @@ public class AccountController {
     private final AccountRepository accountRepository;
     private final ExpenseService expenseService;
     private final UserRepository userRepository;
+
     @PostMapping("/create")
     public ResponseEntity<AccountResponseDto> createAccount(
             @Valid @RequestBody AccountRequestDto request,
@@ -35,11 +37,12 @@ public class AccountController {
         Account createdAccount = accountService.createAccount(request, currentUser);
         return new ResponseEntity<>(AccountResponseDto.fromEntity(createdAccount), org.springframework.http.HttpStatus.CREATED);
     }
+
     //now i have to make an endpoint for the user to fetch different accounts
     //
     @GetMapping("/user/{userid}/accounts")
-    public ResponseEntity<List<AccountResponseDto>> getUserAccounts(@PathVariable Long userid , @AuthenticationPrincipal User currentUser) {
-        UserorAdmin(userid , currentUser);
+    public ResponseEntity<List<AccountResponseDto>> getUserAccounts(@PathVariable Long userid, @AuthenticationPrincipal User currentUser) {
+        UserorAdmin(userid, currentUser);
         List<Account> account = accountRepository.findByUserId(userid);
         return ResponseEntity.ok(account.stream().map(AccountResponseDto::fromEntity).collect(Collectors.toList()));
     }
@@ -50,9 +53,14 @@ public class AccountController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<AccountResponseDto>> getMyAccounts(@AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(accountRepository.findByUserId(currentUser.getId()).stream()
-                .map(AccountResponseDto::fromEntity).collect(Collectors.toList()));
+    public ResponseEntity<List<AccountResponseDto>> getMyAccounts(@AuthenticationPrincipal User currentUser , @RequestParam(required = false) AccountType accountType) {
+        List<Account> accounts;
+        if(accountType!=null){
+            accounts = accountRepository.findByUserIdAndAccountType(currentUser.getId(), accountType);
+        } else {
+            accounts = accountRepository.findByUserId(currentUser.getId());
+        }
+        return ResponseEntity.ok(accounts.stream().map(AccountResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     @PutMapping("/{id}")
@@ -66,10 +74,12 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    public boolean UserorAdmin(Long id , User currentUser){
+    public boolean UserorAdmin(Long id, User currentUser) {
         boolean isUser = currentUser.getId().equals(id);
         boolean isAdmin = currentUser.getRole().equals(Role.ADMIN);
-        if(!isUser && !isAdmin){throw new UnauthorizedAccessException("You do not have access to this resource");}
+        if (!isUser && !isAdmin) {
+            throw new UnauthorizedAccessException("You do not have access to this resource");
+        }
         return true;
     }
 }
