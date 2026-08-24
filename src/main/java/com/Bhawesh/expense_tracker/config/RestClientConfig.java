@@ -11,7 +11,7 @@ public class RestClientConfig {
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
-        factory.setReadTimeout(60000);
+        factory.setReadTimeout(180000); // Increased to 3 minutes to allow AI model loading & inference
         return new RestTemplate(factory);
     }
 }

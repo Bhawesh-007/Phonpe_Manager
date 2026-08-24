@@ -53,13 +53,19 @@ public class ExpenseService {
    }
 
    // Own expenses only — any authenticated user can call this.
-   public List<Expense> getMyExpenses(User currentUser){
+   public List<Expense> getMyExpenses(User currentUser, String categoryName){
+       if (categoryName != null && !categoryName.trim().isEmpty()) {
+           return expenseRepository.findByAccount_User_IdAndCategory_NameContainingIgnoreCase(currentUser.getId(), categoryName);
+       }
        return expenseRepository.findByAccount_User_Id(currentUser.getId());
    }
 
    // Every expense in the system, regardless of owner — admin only.
    @PreAuthorize("hasAuthority('ADMIN')") //this is authorizing only admins to invoke a method
-   public List<Expense> getAllExpense(){
+   public List<Expense> getAllExpense(String categoryName){
+       if (categoryName != null && !categoryName.trim().isEmpty()) {
+           return expenseRepository.findByCategory_NameContainingIgnoreCase(categoryName);
+       }
        return expenseRepository.findAll();
    }
 

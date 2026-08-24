@@ -28,14 +28,14 @@ public class ExpenseController {
 
     // Caller's own expenses only — any authenticated user.
     @GetMapping("/me")
-    public ResponseEntity<List<ExpenseResponseDto>> getMyExpenses(@AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(expenseService.getMyExpenses(currentUser).stream().map(ExpenseResponseDto::fromEntity).collect(Collectors.toList()));
+    public ResponseEntity<List<ExpenseResponseDto>> getMyExpenses(@RequestParam(required = false) String categoryName, @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(expenseService.getMyExpenses(currentUser, categoryName).stream().map(ExpenseResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     // Every expense in the system — admin only (enforced in ExpenseService via @PreAuthorize).
     @GetMapping
-    public ResponseEntity<List<ExpenseResponseDto>> getAllExpense() {
-        return ResponseEntity.ok(expenseService.getAllExpense().stream().map(ExpenseResponseDto::fromEntity).collect(Collectors.toList()));
+    public ResponseEntity<List<ExpenseResponseDto>> getAllExpense(@RequestParam(required = false) String categoryName) {
+        return ResponseEntity.ok(expenseService.getAllExpense(categoryName).stream().map(ExpenseResponseDto::fromEntity).collect(Collectors.toList()));
     }
 
     // Single expense — owner or admin only.

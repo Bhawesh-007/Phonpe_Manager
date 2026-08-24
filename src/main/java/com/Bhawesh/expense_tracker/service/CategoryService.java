@@ -23,8 +23,17 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final ExpenseRepository expenseRepository;
 
+    public static final List<String> STANDARD_CATEGORIES = List.of(
+            "Food and Dining", "Groceries", "Shopping", "Transport",
+            "Utilities", "Entertainment", "Health and Medical",
+            "Personal Transfer", "Education", "Uncategorized"
+    );
+
     @Transactional
     public Category createCategory(CategoryRequestDto categoryreq, User currentUser) {
+        if (!STANDARD_CATEGORIES.contains(categoryreq.getCategoryName())) {
+            throw new BusinessRuleViolationException("Category must be one of the standard categories");
+        }
         if (categoryRepository.countByUserId(currentUser.getId()) >= MAX_CATEGORIES_PER_USER) {
             throw new BusinessRuleViolationException("Cannot create more than " + MAX_CATEGORIES_PER_USER + " categories");
         }
@@ -35,6 +44,10 @@ public class CategoryService {
                 .description(categoryreq.getDescription())
                 .build();
         return categoryRepository.save(category);
+    }
+
+    public List<String> getStandardCategories() {
+        return STANDARD_CATEGORIES;
     }
 
     public List<Category> getAllCategories() {

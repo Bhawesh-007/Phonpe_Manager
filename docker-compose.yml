@@ -20,37 +20,7 @@ services:
     networks:
       - phonepe-network
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: phonepe-backend
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/phonepe_manager?useSSL=false&allowPublicKeyRetrieval=true
-      ML_SERVICE_URL: http://parser:8000
-    ports:
-      - "8080:8080"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      parser:
-        condition: service_started
-    networks:
-      - phonepe-network
 
-  parser:
-    build:
-      context: ../../Microservice_expense_tracker/expense_parser_service
-      dockerfile: Dockerfile
-    container_name: phonepe-parser
-    restart: unless-stopped
-    expose:
-      - "8000"
-    networks:
-      - phonepe-network
 
 volumes:
   phonepe-mysql-data:

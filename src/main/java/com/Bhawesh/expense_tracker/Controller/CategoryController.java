@@ -27,6 +27,11 @@ public class CategoryController {
         return new ResponseEntity<>(CategoryResponseDto.fromEntity(createdCategory), HttpStatus.CREATED);
     }
 
+    @GetMapping("/standard")
+    public ResponseEntity<List<String>> getStandardCategories() {
+        return ResponseEntity.ok(categoryService.getStandardCategories());
+    }
+
     @GetMapping
     public ResponseEntity<List<CategoryResponseDto>> getAllCategories() {
         return ResponseEntity.ok(categoryService.getAllCategories().stream().map(CategoryResponseDto::fromEntity).collect(Collectors.toList()));
