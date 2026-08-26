@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -20,13 +21,15 @@ public class TransactionService {
     private final AccountRepository accountRepository;
     @Transactional // if app crashes halfway in this method then everything just rolls back and no money is lost
     public Transaction transferMoney(TransactionRequestDto request , User currentUser){
-        Account sender = accountRepository.findById(request.getSenderAccountId())
-                .orElseThrow(() -> new RuntimeException("Sender account not found"));
-        if(!sender.getUser().getId().equals((currentUser.getId()))){
-            throw new RuntimeException(("Unauthorized access to sender account"));
+        Account sender = accountRepository.findByUserIdAndUniqueName(currentUser.getId(), request.getSenderUniqueName());
+        if (sender == null) {
+            throw new RuntimeException("Sender account not found with name: " + request.getSenderUniqueName());
         }
-        Account receiver = accountRepository.findById(request.getReceiverAccountId())
-                .orElseThrow(() -> new RuntimeException("Receiver account not found"));
+        
+        Account receiver = accountRepository.findByUserIdAndUniqueName(currentUser.getId(), request.getReceiverUniqueName());
+        if (receiver == null) {
+            throw new RuntimeException("Receiver account not found with name: " + request.getReceiverUniqueName());
+        }
 
         if(sender.getBalance().compareTo(request.getAmount())<0){
             throw new RuntimeException("Insufficient balance");
@@ -44,5 +47,8 @@ public class TransactionService {
                 .createdAt(LocalDateTime.now())
                 .build();
         return transactionRepository.save(transaction);
+    }
+    public List<Transaction> getAllTransactions(User currentuser ){
+         return transactionRepository.findAllByUserId(currentuser.getId());
     }
 }

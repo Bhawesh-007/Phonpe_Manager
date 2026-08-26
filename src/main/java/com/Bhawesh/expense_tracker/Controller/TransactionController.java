@@ -8,10 +8,9 @@ import com.Bhawesh.expense_tracker.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -24,4 +23,12 @@ public class TransactionController {
         Transaction savedTransaction = transactionService.transferMoney(request,currentUser);
         return ResponseEntity.ok(TransactionResponseDto.fromEntity(savedTransaction));
     }
+    @GetMapping("/get_transactions")
+    public List<TransactionResponseDto> getTransactions(@AuthenticationPrincipal User currentUser){
+        List<Transaction> transactions = transactionService.getAllTransactions(currentUser);
+        return transactions.stream()
+                .map(TransactionResponseDto::fromEntity)
+                .toList();
+    }
+
 }

@@ -6,9 +6,8 @@ import java.math.BigDecimal;
 
 @Data
 public class TransactionRequestDto {
-    private Long senderAccountId;
-    private Long receiverAccountId;
+    private String senderUniqueName;
+    private String receiverUniqueName;
     private String Note;
     private BigDecimal amount;
-    private String uniqueName;
 }
