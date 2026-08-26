@@ -20,10 +20,16 @@ public class AccountService {
     private final TransactionRepository transactionRepository;
 
     public Account createAccount(AccountRequestDto request , User currentUser){
-        Account account = new Account().builder()
+        //first i have to add a layer chekcing whether this name is already done by the user
+        Account existingaccount  = accountRepository.findByUserIdAndUniqueName(currentUser.getId(),  request.getUniqueName());
+            if(existingaccount!=null){
+                 throw new  BusinessRuleViolationException("Account already exists");
+            }
+        Account account = Account.builder()
                 .accountType(request.getAccountType())
                 .balance(request.getInitialBalance())
                 .creditLimit(request.getCreditLimit())
+                .uniqueName(request.getUniqueName())
                 .user(currentUser)
                 .build();
         return accountRepository.save(account);

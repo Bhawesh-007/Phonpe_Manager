@@ -16,6 +16,7 @@ public class AccountResponseDto {
     private BigDecimal balance;
     private BigDecimal creditLimit;
     private AccountType accountType;
+    private String uniqueName;
     private LocalDateTime createdAt;
 
     public static AccountResponseDto fromEntity(Account account) {
@@ -25,6 +26,7 @@ public class AccountResponseDto {
                 account.getBalance(),
                 account.getCreditLimit(),
                 account.getAccountType(),
+                account.getUniqueName(),
                 account.getCreatedAt()
         );
     }

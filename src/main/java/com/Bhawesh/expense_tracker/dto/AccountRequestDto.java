@@ -19,4 +19,6 @@ public class AccountRequestDto {
     private BigDecimal initialBalance;
     
     private BigDecimal creditLimit;
+    @NotBlank(message = "Unique name is required")
+    private String uniqueName;
 }

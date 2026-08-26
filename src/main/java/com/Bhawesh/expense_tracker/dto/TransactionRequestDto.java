@@ -10,4 +10,5 @@ public class TransactionRequestDto {
     private Long receiverAccountId;
     private String Note;
     private BigDecimal amount;
+    private String uniqueName;
 }
