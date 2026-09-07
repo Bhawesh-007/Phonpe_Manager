@@ -48,7 +48,7 @@ public class StatementService {
         UploadedStatement statement = uploadedStatementRepository.save(UploadedStatement.builder()
                 .user(currentUser).account(account).fileName(file.getOriginalFilename()).status(StatementStatus.PENDING).build());
         try {
-            List<StatementReviewItemDto> reviewItems = getTransactions(file).stream()
+            List<StatementReviewItemDto> reviewItems = getTransactions(file, currentUser).stream()
                     .map(item -> toReviewItem(item, currentUser)).toList();
             statement.setStatus(StatementStatus.PARSED);
             statement.setExtracted_count(reviewItems.size());
@@ -118,12 +118,13 @@ public class StatementService {
         return account;
     }
 
-    private List<MlTransactionItemDto> getTransactions(MultipartFile file) throws IOException {
+    private List<MlTransactionItemDto> getTransactions(MultipartFile file, User currentUser) throws IOException {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new ByteArrayResource(file.getBytes()) { @Override public String getFilename() { return file.getOriginalFilename(); } });
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        ResponseEntity<MlTransactionResponseDto> response = restTemplate.postForEntity(mlServiceUrl + "/parser/process",
+        String url = mlServiceUrl + "/parser/process?userId=" + currentUser.getId();
+        ResponseEntity<MlTransactionResponseDto> response = restTemplate.postForEntity(url,
                 new HttpEntity<>(body, headers), MlTransactionResponseDto.class);
         MlTransactionResponseDto payload = response.getBody();
         if (payload == null || payload.getData() == null || !"success".equalsIgnoreCase(payload.getStatus())) {
