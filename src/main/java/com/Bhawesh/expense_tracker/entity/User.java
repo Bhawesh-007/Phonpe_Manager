@@ -40,6 +40,9 @@ public class User implements UserDetails {
     private List<UploadedStatement> uploadedStatements;
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DebtRecord> debtRecords;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MerchantCache> merchantCaches;
+
     @Enumerated(EnumType.STRING)
     private Role role;
    //Spring user details methods

@@ -53,7 +53,8 @@ public class AuthService {
                         .user(user)
                         .build());
             }
-            var jwtToken = jwtService.generateToken(user);
+            java.util.Map<String, Object> extraClaims = java.util.Map.of("userId", user.getId());
+            var jwtToken = jwtService.generateToken(extraClaims, user);
             return AuthResponse.builder()
                     .token(jwtToken)
                     .build();
@@ -68,7 +69,8 @@ public class AuthService {
                  );
          //now if password is correct then
         var user = userRepository.findByEmail(request.getEmail()).orElseThrow();
-        var jwtToken = jwtService.generateToken(user);
+        java.util.Map<String, Object> extraClaims = java.util.Map.of("userId", user.getId());
+        var jwtToken = jwtService.generateToken(extraClaims, user);
         return AuthResponse.builder()
                 .token(jwtToken)
                 .build();
